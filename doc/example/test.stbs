@@ -1,0 +1,35 @@
+#target 0: #lang test;
+
+#import mips;
+#import global;
+
+##Random code
+
+@main:
+	print "foobar";
+	if $_a0 jump @foo;
+	nop; nop;
+	if $_a1 jump @bar else {
+		goto @test;
+		@test:
+		while $5555 {$5555 -= 1;};
+		do {$5555 += $55;} while $5555 ;
+		goto @bar;
+		};
+	if $5555 {print "FUBAR";};
+	goto @exit;
+	end;
+	#raw:2 0xBAAD 0xF00D; ##theoretically unreachable code, put just to see the effect of #raw
+	#string "BAADF00D" ;  ##same as above
+
+
+@foo:
+	$_t0 = $_t1 + $_t2;
+	$_t2 = $_t2;
+	nop; nop; nop; nop;
+	return;
+
+@bar:
+	if $_t0 jump @exit else jump @bar;
+	end;
+	

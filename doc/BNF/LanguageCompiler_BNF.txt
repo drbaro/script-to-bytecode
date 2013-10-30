@@ -1,0 +1,95 @@
+s: lang_decl opt_option_list def_list
+
+lang_decl: #language <identifier> ':'
+
+opt_option_list: option_list
+               | 
+
+option_list: option ';'
+           | option_list option ';'
+           | option
+           | option_list option
+
+option: width_name width_value
+      | #endian <identifier>
+      | #filesize <identifier>
+      | #filesize <literal>
+
+width_name: #let <identifier>
+          | #code
+          | #target
+          | #offset
+
+width_value: <constant width>
+           | :code
+           | :target
+           | :offset
+           | <named width>
+
+def_list: definition ';'
+        | def_list definition ';'
+
+definition: command
+          | instruction
+
+command: #command <identifier> code '{' comm_param_list '}' command_auto
+       | #command <identifier> code command_auto
+
+comm_param_list: <identifier> width_value
+               | comm_param_list ';' <identifier> width_value
+
+code:
+    | ':' #fresh
+    | ':' <literal>
+
+command_auto: #instruction
+            | 
+
+instruction: #instruction param_list ':' '{' instr_meaning '}'
+           | #instruction param_list ':' '{' instr_meaning '}' #modify ':' modify_list
+
+modify_list: <identifier> '{' modify_clauses '}'
+           | modify_list <identifier> '{' modify_clauses '}'
+
+modify_clauses: modify_clause
+              | modify_clauses modify_clause
+
+modify_clause: #begin '{' instr_meaning '}'
+             | #end '{' instr_meaning '}'
+
+param_list: param
+          | param_list param
+
+param: atom
+     | <identifier> width_value
+     | <label>
+     | <label> #local
+     | '{' <identifier> '}'
+
+string: "<stringid>"
+      | "<string>"
+
+instr_meaning: instr_command
+             | instr_meaning instr_command
+
+instr_command: "<identifier>" trans_param_lst ';'
+             | "<label>" ':'
+             | "#raw" width_value data_chunk ';'
+             | "#string" string ';'
+
+data_chunk: <literal>
+          | data_chunk <literal>
+
+trans_param_lst: trans_param_lst2
+               | 
+
+trans_param_lst2: trans_param
+                | trans_param_lst2 trans_param
+
+trans_param: "<literal>"
+           | "#target"
+           | "<label>"
+           | "<identifier>"
+           | "<stringid>"
+           | "<label>" ":offset"
+           | "<label>" ":target"

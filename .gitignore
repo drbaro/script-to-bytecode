@@ -16,3 +16,6 @@
 *.exe
 *.out
 *.app
+
+# Local files that don't belong in the repository
+local/

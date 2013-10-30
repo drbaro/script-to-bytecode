@@ -1,0 +1,76 @@
+s: header body
+
+header: target_decl lang_get opt_decls
+
+body: label_decl instruction
+    | instruction
+    | value_decl
+    | body label_decl instruction
+    | body instruction
+    | body value_decl
+
+opt_decls: 
+         | decl_list
+
+decl_list: declaration ';'
+         | decl_list declaration ';'
+
+declaration: export_decl
+           | import_decl
+
+target_decl: #target <literal> ':'
+           | #resource ':'
+
+label_decl: <label> ':'
+
+value_decl: #let <value> ':' valued ';'
+
+export_decl: #export exportable_list
+           | #export exportable_list ':' <identifier>
+
+exportable_list: exportable
+               | exportable_list exportable
+
+exportable: <label>
+          | <value>
+
+import_decl: #import <identifier>
+
+lang_get: #lang <identifier> ';'
+
+instruction: code_unit ';'
+
+code_unit: param_list
+         | #raw <constant width> data_chunk
+         | #string <string>
+
+data_chunk: valued
+          | data_chunk valued
+
+valued: <literal>
+      | <value>
+
+param_list: param
+          | param_list param
+
+param: atom
+     | valued
+     | <label>
+     | '{' exec_block '}'
+
+atom: <atom>
+    | <identifier>
+
+exec_block: instruction
+          | label_decl instruction
+          | exec_block instruction
+          | exec_block label_decl instruction
+          
+          
+          
+/*
+
+
+
+
+*/

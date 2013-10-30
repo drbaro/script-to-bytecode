@@ -1,0 +1,222 @@
+#######################################
+##     TEST APPLICATION LANGUAGE     ##
+#######################################
+
+#lang test:
+
+#code:1; #target:2; #offset:2;
+#endian little;
+#filesize max;
+
+#let var:2; ##register identifiers
+#let val:4; ##values held in registers
+
+#command nop: 0 #instruction;
+#command end: 1 #instruction;
+#command system: 2 #instruction;
+
+#command set    {dst:var ; value:val};
+#command cp     {dst:var ; src:var};
+#command add    {dst:var ; src1:var ; src2:var};
+#command addi   {dst:var ; src:var  ; value:val};
+#command sub    {dst:var ; src1:var ; src2:var};
+#command subi   {dst:var ; src:var  ; value:val};
+
+#instruction $a:var = $b:var            :{ cp a b; };
+#instruction $a:var = x:val             :{ set a x; };
+
+#instruction $a:var = $b:var + $c:var   :{ add  a b c; };
+#instruction $a:var = $b:var + x:val    :{ addi a b x; };
+#instruction $a:var = x:val + $b:var    :{ addi a b x; };
+#instruction $a:var += $b:var           :{ add  a a b; };
+#instruction $a:var += x:val            :{ addi a a x; };
+
+#instruction $a:var = $b:var - $c:var   :{ sub  a b c; };
+#instruction $a:var = $b:var - x:val    :{ subi a b x; };
+#instruction $a:var = x:val - $b:var    :{ subi a b x; };
+#instruction $a:var -= $b:var           :{ sub  a a b; };
+#instruction $a:var -= x:val            :{ subi a a x; };
+
+
+## Position control
+#command goto: 0x10 {target:target ; offset:offset};
+#command goin: 0x11 {offset:offset};                    ##local goto
+#command biz:  0x12 {src:var ; pos:offset};             ##branch if zero
+#command binz: 0x13 {src:var ; pos:offset};             ##branch if not zero
+
+## Bad old gotos
+#instruction goto @lbl#local            :{ goin @lbl:offset; };
+#instruction goto @lbl                  :{ goto @lbl:target @lbl:offset; };
+
+
+## Stack control
+#command push: 0x20 {target:target ; offset:offset};
+#command pop: 0x21; ##discard top of stack
+#command return : 0x22 #instruction; ##pop and goto
+
+##Plain nested block (still needs to have a semicolon after it though)
+#instruction {code}
+    :{ goin code; @return: }
+    #modify: code{ #begin{push #target @return;} #end{return;} 
+	}
+    ;
+
+##Go to a routine from which it is possible to return
+#instruction jump @lbl#local
+    :{
+        push #target @return;
+        goin @lbl:offset;
+        @return:
+    };
+#instruction jump @lbl
+    :{
+        push #target @return;
+        goto @lbl:target @lbl:offset;
+        @return:
+    };
+
+##Conditionals. There will be many versions of ifs:
+## - With or without else
+## - Using local or global labels
+## - Using labels or code blocks
+
+#instruction if $a:var {then}  :{ binz a then; @return:}
+    #modify:
+        then { #begin{push #target @return;} #end{return;} }
+    ;
+    
+#instruction if $a:var {bthen} else {belse}
+    :{
+        push #target @return;
+        binz a bthen;
+        goin belse;
+        @return:
+    }
+    #modify:
+        bthen { #end{return;} }
+        belse { #end{return;} }
+    ;
+    
+#instruction if $a:var jump @then#local
+    :{
+        biz a @return;
+        push #target @return;
+        goin @then:offset;
+        @return:
+    };    
+    
+#instruction if $a:var jump @then
+    :{
+        biz a @return;
+        push #target @return;
+        goto @then:target @then:offset;
+        @return:
+    };
+
+#instruction if $a:var jump @then#local else jump @else#local
+    :{
+        push #target @return;
+        biz a @jumpElse;
+        goin @then:offset;
+        @jumpElse:
+        goin @else:offset;
+        @return:
+    };
+    
+#instruction if $a:var jump @then#local else jump @else
+    :{
+        push #target @return;
+        biz a @jumpElse;
+        goin @then:offset;
+        @jumpElse:
+        goto @else:target @else:offset;
+        @return:
+    };
+    
+#instruction if $a:var jump @then else jump @else#local
+    :{
+        push #target @return;
+        biz a @jumpElse;
+        goto @then:target @then:offset;
+        @jumpElse:
+        goin @else:offset;
+        @return:
+    };
+
+#instruction if $a:var jump @then else jump @else
+    :{
+        push #target @return;
+        biz a @jumpElse;
+        goto @then:target @then:offset;
+        @jumpElse:
+        goto @else:target @else:offset;
+        @return:
+    };
+
+#instruction if $a:var jump @then#local else {belse}
+    :{
+        push #target @return;
+        biz a @jumpElse;
+        goin @then:offset;
+        @jumpElse:
+        goin belse;
+        @return:
+    }
+    #modify:
+        belse { #end{return;} }
+    ;
+
+#instruction if $a:var jump @bthen else {belse}
+    :{
+        push #target @return;
+        biz a @jumpElse;
+        goto @bthen:target @bthen:offset;
+        @jumpElse:
+        goin belse;
+        @return:
+    }
+    #modify:
+        belse { #end{return;} }
+    ;
+
+#instruction if $a:var {then} else jump @else#local
+    :{
+        push #target @return;
+        binz a then;
+        goin @else:offset;
+        @return:
+    }
+    #modify:
+        then { #end{return;} }
+    ;
+
+#instruction if $a:var {then} else jump @else
+    :{
+        push #target @return;
+        binz a then;
+        goto @else:target @else:offset;
+        @return:
+    }
+    #modify:
+        then { #end{return;} }
+    ;
+
+## while do loop
+
+#instruction while $a:var {loop}
+    :{ @test: binz a loop; }
+    #modify:
+        loop { #begin{push #target @test;} #end{return;} }
+    ;
+    
+## do while loop
+
+#instruction do {loop} while $a:var
+    :{ goin loop; @test: binz a loop; }
+    #modify:
+        loop { #begin{push #target @test;} #end{return;} }
+    ;
+
+## print
+#command print { text:offset };
+#instruction print "text" :{ print "text"; };

@@ -1,0 +1,10 @@
+#target 0xFF: #lang test;
+
+#export @exit : global;
+#import mips;
+
+@exit:
+	print "Program terminated";
+	$_v0 = 10;
+	system;
+	end;
